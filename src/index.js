@@ -73,13 +73,29 @@ app.post("/events", async(req,res)=>{
 })
 
 app.get("/event/:eventId/orders",async(req,res)=>{
+
   const {eventId}=req.params
+
+  const cacheKey=`event:order${eventId}`
+
+  const cached=await redis.get(cacheKey)
+
+  if(cached!==null){
+    return res.json(JSON.parse(cached))
+  }
 
   const orders=await orderCollection
                   .find({eventId})
                   .project({_id:0,eventId:1,userId:1,status:1, createdAt:1})
                   .toArray()
-               return res.json({eventId,count:orders.length,orders})
+
+                  const response={eventId,count:orders.length,orders}
+
+                  await redis.set(cacheKey, JSON.stringify(response),"EX",30)
+
+                  return res.status(200).json(response)
+
+      
 
 })
 
